@@ -18,11 +18,17 @@ export enum ScreenName {
 export interface NumerologyProfile {
   lifePathNumber: number;
   title: string;
-  description: string;
-  strengths: string[];
-  weaknesses: string[];
-  learningStyle: string;
-  mathApproach: string; 
+  // 10 Key Fields
+  overview: string;             // 1. TỔNG QUAN TÍNH CÁCH
+  learningStyle: string;        // 2. PHONG CÁCH HỌC TẬP
+  aptitude: string;             // 3. KHIẾU NĂNG LỰC TẬP TRUNG
+  motivation: string;           // 4. ĐỘNG LỰC HỌC TẬP
+  mathApproach: string;         // 5. CÁCH TIẾP CẬN BÀI TOÁN
+  strengths: string[];          // 6. ĐIỂM MẠNH NỔI BẬT
+  challenges: string[];         // 7. THÁCH THỨC CẦN KHẮC PHỤC
+  effectiveMethod: string;      // 8. PHƯƠNG PHÁP HỌC HIỆU QUẢ
+  environment: string;          // 9. MÔI TRƯỜNG HỌC TẬP LÝ TƯỞNG
+  conclusion: string;           // 10. KẾT LUẬN KHUYẾN NGHỊ CHUNG
 }
 
 export type QuestionType = 'multiple-choice' | 'true-false' | 'fill-in-blank';
@@ -80,6 +86,8 @@ export interface UserProfile {
   numerologyNumber: number; 
   numerologyProfile?: NumerologyProfile;
   proficiencyLevel?: number; // 1: Weak, 2: Average, 3: Good, 4: Excellent
+  assessmentTags?: string[]; // New: Habits like "Slow calculator", "Likes puzzles"
+  assessmentNotes?: string;  // New: Custom notes from user
   selectedTopics?: string[];
   learningPath?: LearningUnit[];
   history?: QuizResult[]; // Store learning history

@@ -2,12 +2,38 @@
 import { GoogleGenAI, SchemaType, Type } from "@google/genai";
 import { UserProfile, LearningUnit, GameActivity } from "../types";
 
-// --- Configuration & Helpers ---
+// Initialize Gemini
+// Initialize Gemini Helper
+const getApiKey = () => localStorage.getItem('GEMINI_API_KEY') || "";
 
-const MODELS = ["gemini-3-flash-preview", "gemini-3-pro-preview", "gemini-2.5-flash"];
+const MODELS = ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.5-flash'];
 
-const getApiKey = (): string => {
-  return localStorage.getItem("user_api_key") || "";
+const generateContentWithFallback = async (prompt: string, schema: any, systemInstruction: string, temperature: number) => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("MISSING_API_KEY");
+  
+  const ai = new GoogleGenAI({ apiKey });
+  let lastError: any = null;
+
+  for (const model of MODELS) {
+    try {
+      console.log(`Attempting with model: ${model}`);
+      return await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+          systemInstruction,
+          temperature
+        }
+      });
+    } catch (error) {
+      console.warn(`Model ${model} failed:`, error);
+      lastError = error;
+    }
+  }
+  throw lastError;
 };
 
 const MATH_FORMATTING_RULES = `
@@ -24,54 +50,6 @@ QUY TẮC HIỂN THỊ CÔNG THỨC TOÁN HỌC (QUAN TRỌNG):
    - Với các biểu thức phức tạp, hãy dùng thẻ HTML để trình bày rõ ràng.
 `;
 
-const generateContentWithFallback = async (
-  prompt: string, 
-  schema: any, 
-  systemInstruction: string,
-  temperature: number = 0.7
-): Promise<any> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("Vui lòng nhập API Key để sử dụng tính năng này.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  let lastError: any;
-
-  for (const modelName of MODELS) {
-    try {
-      console.log(`[AI Generator] Trying model: ${modelName}`);
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: schema,
-          systemInstruction: systemInstruction,
-          temperature: temperature,
-        }
-      });
-
-      const jsonText = response.text;
-      if (!jsonText) throw new Error(`No data returned from model ${modelName}`);
-      
-      return JSON.parse(jsonText);
-
-    } catch (error: any) {
-      console.warn(`[AI Generator] Model ${modelName} failed:`, error);
-      lastError = error;
-      
-      // Continue to next model on error
-      continue;
-    }
-  }
-
-  // If all models fail
-  throw lastError || new Error("All AI models failed to generate content.");
-};
-
-// --- Generators ---
-
 export const generateLearningPath = async (
   user: UserProfile, 
   topics: string[]
@@ -82,65 +60,96 @@ export const generateLearningPath = async (
   let performanceContext = "";
   let adjustedLevel = user.proficiencyLevel || 2; // Default Average
 
+  // --- 1.1 Calculate Recent Performance ---
   if (history.length > 0) {
-      // Tìm các bài làm yếu (< 50%) và tốt (> 80%)
-      const weakUnits = history.filter(h => (h.score / h.totalQuestions) < 0.5);
-      const strongUnits = history.filter(h => (h.score / h.totalQuestions) >= 0.8);
-      
-      const weakTopics = [...new Set(weakUnits.map(h => h.unitTitle))];
-      const strongTopics = [...new Set(strongUnits.map(h => h.unitTitle))];
-
       // Tính điểm trung bình 5 bài gần nhất để xác định phong độ hiện tại
       const recentHistory = history.slice(0, 5);
       const recentAvg = recentHistory.reduce((acc, h) => acc + (h.score / h.totalQuestions), 0) / (recentHistory.length || 1);
 
       // Điều chỉnh Level dựa trên phong độ thực tế
-      if (recentAvg < 0.5) adjustedLevel = 1; // Hạ xuống cơ bản
-      else if (recentAvg > 0.85) adjustedLevel = 4; // Tăng lên xuất sắc
+      if (recentAvg < 0.5) adjustedLevel = Math.max(1, adjustedLevel - 1); 
+      else if (recentAvg > 0.85) adjustedLevel = Math.min(4, adjustedLevel + 1);
 
       performanceContext = `
-      PHÂN TÍCH DỮ LIỆU HỌC TẬP THỰC TẾ CỦA HỌC SINH (QUAN TRỌNG):
+      THỐNG KÊ LỊCH SỬ HỌC TẬP:
       - Điểm trung bình gần đây: ${(recentAvg * 10).toFixed(1)}/10.
-      - Chủ đề đang yếu (CẦN KHẮC PHỤC NGAY): ${weakTopics.length > 0 ? weakTopics.join(", ") : "Không có, nền tảng tốt."}
-      - Chủ đề thế mạnh (CẦN PHÁT HUY): ${strongTopics.length > 0 ? strongTopics.join(", ") : "Đang phát triển."}
-      
-      YÊU CẦU ĐIỀU CHỈNH LỘ TRÌNH:
-      1. Nếu có "Chủ đề đang yếu": BẮT BUỘC bài học đầu tiên của lộ trình phải là "Ôn tập lại [Chủ đề yếu]" với mức độ Dễ để lấy lại gốc.
-      2. Nếu "Điểm trung bình" cao (>8.0): Tăng tỷ lệ câu hỏi Vận dụng cao lên 50% cho các bài học mới.
-      3. Nếu "Điểm trung bình" thấp (<5.0): Giảm độ khó, tập trung vào lý thuyết và ví dụ minh họa, giải thích chi tiết.
+      - Level được điều chỉnh: ${adjustedLevel}.
       `;
   } else {
-      performanceContext = "Học sinh mới, chưa có dữ liệu lịch sử. Hãy tạo lộ trình tiêu chuẩn theo lớp học.";
+      performanceContext = "Học sinh mới, tạo lộ trình khởi động dựa trên đánh giá đầu vào.";
   }
 
-  // Map Proficiency Level to Description
-  const proficiencyMap = ["Yếu (Cần củng cố căn bản)", "Trung bình", "Khá", "Xuất sắc (Chuyên sâu)"];
-  const levelDesc = proficiencyMap[adjustedLevel - 1] || proficiencyMap[1];
+  // --- 2. EXTRACT NUMEROLOGY PROFILE (10 Fields) ---
+  const numProfile = user.numerologyProfile;
+  const numerologyContext = numProfile ? `
+    HỒ SƠ THẦN SỐ HỌC (QUAN TRỌNG - Hãy áp dụng vào cách đặt câu hỏi và giải thích):
+    1. Tổng quan: ${numProfile.overview}
+    2. Phong cách học: ${numProfile.learningStyle}
+    3. Năng lực tập trung: ${numProfile.aptitude}
+    4. Động lực học: ${numProfile.motivation}
+    5. Cách tiếp cận toán: ${numProfile.mathApproach}
+    6. Điểm mạnh: ${numProfile.strengths.join(", ")}
+    7. Thách thức: ${numProfile.challenges.join(", ")}
+    8. Phương pháp hiệu quả: ${numProfile.effectiveMethod}
+    9. Môi trường lý tưởng: ${numProfile.environment}
+    10. Khuyến nghị chung: ${numProfile.conclusion}
+  ` : "Không có dữ liệu thần số học, sử dụng phong cách mặc định.";
 
-  // --- 2. Construct the Prompt ---
+  // --- 3. USER SELF-ASSESSMENT DATA ---
+  const assessmentContext = `
+    ĐÁNH GIÁ NĂNG LỰC TỪ NGƯỜI DÙNG:
+    - Học lực tự đánh giá (1-4): ${user.proficiencyLevel || "Chưa rõ"}
+    - Thói quen/Đặc điểm (Tags): ${user.assessmentTags?.join(", ") || "Không có"}
+    - Ghi chú thêm từ học sinh/phụ huynh: "${user.assessmentNotes || "Không có"}"
+  `;
+
+  // --- 4. Construct the Prompt ---
   const prompt = `
-    Đóng vai một chuyên gia giáo dục toán học AI & Phân tích dữ liệu. Hãy tạo một lộ trình học tập tối ưu hóa theo ngày cho học sinh này:
+    Đóng vai một chuyên gia giáo dục toán học AI & Phân tích dữ liệu hành vi. 
+    Nhiệm vụ: Tạo lộ trình học tập SIÊU CÁ NHÂN HÓA cho học sinh này.
     
     THÔNG TIN CƠ BẢN:
     - Lớp: ${user.grade}
-    - Phong cách học (Thần số học): ${user.numerologyProfile?.mathApproach || "Logic, trực quan"}
     - Chủ đề mong muốn: ${topics.join(", ")}
-    
+
+    ${numerologyContext}
+
+    ${assessmentContext}
+
     ${performanceContext}
     
     ${MATH_FORMATTING_RULES}
 
-    YÊU CẦU CẤU TRÚC JSON:
-    1. Tạo danh sách các "Learning Unit" (Bài học).
-    2. Mỗi bài học bao gồm danh sách câu hỏi (Questions).
-    3. SỐ LƯỢNG CÂU HỎI: 5-10 câu/bài.
-    4. ĐA DẠNG HÌNH THỨC: 'multiple-choice', 'true-false', 'fill-in-blank'.
-    5. Ngôn ngữ: Tiếng Việt.
+    YÊU CẦU LOGIC TẠO BÀI HỌC:
+    1. **Thích ứng theo Thần số học**:
+       - Nếu "Phong cách học" là hình ảnh/trực quan (Số 3, 5): Dùng emoji, hình tượng trong câu hỏi.
+       - Nếu "Cách tiếp cận" là Logic/Phân tích (Số 1, 4, 7): Câu hỏi cần chặt chẽ, đi thẳng vấn đề.
+       - Nếu "Động lực" là giúp đỡ/kết nối (Số 2, 6, 9): Đặt bài toán vào ngữ cảnh giúp đỡ bạn bè, cộng đồng.
+    2. **Thích ứng theo Đánh giá**:
+       - Nếu Tags có "Sợ số học" hoặc "Tính toán chậm": Bắt đầu bằng câu hỏi trắc nghiệm dễ, giải thích cực kỳ chi tiết, khích lệ nhiều.
+       - Nếu Tags có "Thích giải đố": Thêm dạng câu hỏi tư duy logic (fill-in-blank).
+       - Nếu Ghi chú có yêu cầu cụ thể (VD: "Yếu hình học"): Ưu tiên tạo bài về chủ đề đó trước.
+    3. **Cấu trúc bài học**:
+       - Level ${adjustedLevel} (1: Cơ bản, 4: Nâng cao).
+       - 5-10 câu hỏi/bài.
+       - Đa dạng loại câu hỏi (Trắc nghiệm, Đúng/Sai, Điền từ).
 
-    OUTPUT JSON FORMAT ONLY.
+    YÊU CẦU CẤU TRÚC JSON OUTPUT:
+    {
+      "units": [
+        {
+          "topicId": "string",
+          "title": "Tên bài học hấp dẫn (VD: Chinh phục Hình học...)",
+          "description": "Mô tả ngắn gọn, động viên",
+          "totalXp": number,
+          "durationMinutes": number,
+          "questions": [ ... ]
+        }
+      ]
+    }
   `;
 
-  // 3. Define Response Schema
+  // 5. Define Response Schema
   const schema = {
     type: Type.OBJECT,
     properties: {
@@ -183,11 +192,18 @@ export const generateLearningPath = async (
   };
 
   try {
-    const parsedData = await generateContentWithFallback(
+    const response = await generateContentWithFallback(
       prompt,
       schema,
-      "You are an Adaptive AI Tutor. You analyze student history to create the perfect learning path. Follow math formatting rules strictly."
+      "You are a Hyper-Personalized AI Tutor. Analyze the full student profile including Numerology and Assessment to create the perfect curriculum.",
+      0.7
     );
+
+    const jsonText = response.text; 
+    
+    if (!jsonText) throw new Error("No data returned from AI");
+
+    const parsedData = JSON.parse(jsonText);
     
     const processedUnits: LearningUnit[] = parsedData.units.map((unit: any, index: number) => ({
       ...unit,
@@ -200,7 +216,7 @@ export const generateLearningPath = async (
 
   } catch (error) {
     console.error("AI Generation Error:", error);
-    throw error; // Propagate error to UI
+    return [];
   }
 };
 
@@ -266,12 +282,17 @@ export const generateChallengeUnit = async (
   };
 
   try {
-    const parsedUnit = await generateContentWithFallback(
+    const response = await generateContentWithFallback(
       prompt,
       schema,
       "You are a tough but fair AI Math Coach. Follow math formatting rules strictly.",
       0.8
     );
+
+    const jsonText = response.text;
+    if (!jsonText) throw new Error("No data returned");
+
+    const parsedUnit = JSON.parse(jsonText);
 
     return {
       ...parsedUnit,
@@ -282,7 +303,7 @@ export const generateChallengeUnit = async (
 
   } catch (error) {
     console.error("Challenge Generation Error", error);
-    throw error;
+    return null;
   }
 };
 
@@ -354,11 +375,17 @@ export const generateComprehensiveTest = async (user: UserProfile): Promise<Lear
   };
 
   try {
-    const parsedUnit = await generateContentWithFallback(
+    const response = await generateContentWithFallback(
       prompt,
       schema,
-      "You are a precise Exam Creator AI. You create balanced, progressive difficulty tests. Follow math formatting rules strictly."
+      "You are a precise Exam Creator AI. You create balanced, progressive difficulty tests. Follow math formatting rules strictly.",
+      0.7
     );
+
+    const jsonText = response.text;
+    if (!jsonText) throw new Error("No data returned");
+
+    const parsedUnit = JSON.parse(jsonText);
 
     return {
       ...parsedUnit,
@@ -368,7 +395,7 @@ export const generateComprehensiveTest = async (user: UserProfile): Promise<Lear
     };
   } catch (error) {
     console.error("Exam Generation Error", error);
-    throw error;
+    return null;
   }
 };
 
@@ -396,7 +423,6 @@ export const generateEntertainmentContent = async (user: UserProfile): Promise<G
     3. QUAN TRỌNG: Tất cả hoạt động đều phải có một CÂU HỎI hoặc NHIỆM VỤ cụ thể mà học sinh có thể nhập đáp án vào ô trống.
     4. Đối với 'challenge' (thử thách thực tế), hãy đặt câu hỏi về kết quả của thử thách (Ví dụ: "Bạn đếm được bao nhiêu hình tròn?", "Kết quả phép tính cuối cùng là gì?").
     5. Cung cấp đáp án (answer) ngắn gọn, chính xác (số hoặc từ đơn) để hệ thống tự động chấm điểm.
-    6. Ngôn ngữ: Tiếng Việt.
 
     CHI TIẾT LOẠI HÌNH:
     - 'puzzle': Câu đố vui, đố mẹo toán học.
@@ -434,12 +460,16 @@ export const generateEntertainmentContent = async (user: UserProfile): Promise<G
   };
 
   try {
-     const parsed = await generateContentWithFallback(
+     const response = await generateContentWithFallback(
       prompt,
       schema,
       "You are a fun and creative Gamification Master for kids. Follow math formatting rules strictly.",
       0.85
-     );
+    );
+
+    const jsonText = response.text;
+    if (!jsonText) throw new Error("No data returned");
+    const parsed = JSON.parse(jsonText);
     return parsed.activities;
 
   } catch (error) {

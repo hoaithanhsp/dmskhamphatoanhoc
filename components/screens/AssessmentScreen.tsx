@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { ChevronLeft, Brain, ArrowRight, Sparkles } from 'lucide-react';
 
 interface Props {
-  onNext: () => void;
+  onNext: (data: { proficiency: number, tags: string[], notes: string }) => void;
   onBack: () => void;
   setProficiency: (level: number) => void;
 }
 
 export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficiency }) => {
   const [level, setLevel] = useState(3);
+  const [notes, setNotes] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>(['t2']); // Default 'Thích giải đố'
 
   const handleLevelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value);
@@ -17,6 +19,33 @@ export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficien
   };
 
   const proficiencyLabels = ["Yếu", "Trung bình", "Khá", "Xuất sắc"];
+
+  const tagsList = [
+    { id: 't1', label: '🐢 Tính toán chậm' },
+    { id: 't2', label: '🧩 Thích giải đố' },
+    { id: 't3', label: '🦋 Dễ mất tập trung' },
+    { id: 't4', label: '🥱 Nhanh chán' },
+    { id: 't5', label: '🤖 Tư duy logic' },
+    { id: 't6', label: '😨 Sợ số học' },
+  ];
+
+  const toggleTag = (id: string) => {
+    if (selectedTags.includes(id)) {
+      setSelectedTags(selectedTags.filter(t => t !== id));
+    } else {
+      setSelectedTags([...selectedTags, id]);
+    }
+  };
+
+  const handleContinue = () => {
+    // Map tag IDs back to labels for easier AI processing
+    const tagLabels = tagsList.filter(t => selectedTags.includes(t.id)).map(t => t.label);
+    onNext({
+      proficiency: level,
+      tags: tagLabels,
+      notes: notes
+    });
+  };
 
   return (
     <div className="bg-primary-surface min-h-screen flex flex-col relative text-gray-900">
@@ -27,7 +56,7 @@ export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficien
         </button>
         <h2 className="text-lg font-bold leading-tight flex-1 text-center">Đánh giá năng lực</h2>
         <div className="flex w-10 items-center justify-end">
-          <button onClick={onNext} className="text-gray-500 text-sm font-bold hover:text-primary transition-colors">Bỏ qua</button>
+          <button onClick={handleContinue} className="text-gray-500 text-sm font-bold hover:text-primary transition-colors">Bỏ qua</button>
         </div>
       </div>
 
@@ -84,24 +113,31 @@ export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficien
           <h3 className="text-base font-semibold">Đặc điểm thói quen</h3>
           <p className="text-xs text-gray-500 mb-1">Chọn các từ khóa mô tả đúng nhất (có thể chọn nhiều)</p>
           <div className="flex flex-wrap gap-2.5">
-            {[
-              { id: 't1', label: '🐢 Tính toán chậm', checked: false },
-              { id: 't2', label: '🧩 Thích giải đố', checked: true },
-              { id: 't3', label: '🦋 Dễ mất tập trung', checked: false },
-              { id: 't4', label: '🥱 Nhanh chán', checked: false },
-              { id: 't5', label: '🤖 Tư duy logic', checked: false },
-              { id: 't6', label: '😨 Sợ số học', checked: false },
-            ].map(tag => (
-              <div key={tag.id} className="relative group">
-                <input type="checkbox" id={tag.id} defaultChecked={tag.checked} className="peer sr-only" />
-                <label 
-                  htmlFor={tag.id}
-                  className="cursor-pointer inline-flex items-center justify-center px-4 py-2.5 border border-teal-100 rounded-xl text-sm font-medium text-slate-600 bg-white hover:border-primary/50 transition-all select-none shadow-sm peer-checked:bg-primary peer-checked:text-white peer-checked:border-primary peer-checked:shadow-md"
-                >
-                  {tag.label}
-                </label>
-              </div>
-            ))}
+            {tagsList.map(tag => {
+              const isChecked = selectedTags.includes(tag.id);
+              return (
+                <div key={tag.id} className="relative group">
+                  <input 
+                    type="checkbox" 
+                    id={tag.id} 
+                    checked={isChecked} 
+                    onChange={() => toggleTag(tag.id)}
+                    className="peer sr-only" 
+                  />
+                  <label 
+                    htmlFor={tag.id}
+                    className={`cursor-pointer inline-flex items-center justify-center px-4 py-2.5 border rounded-xl text-sm font-medium transition-all select-none shadow-sm
+                      ${isChecked 
+                        ? 'bg-primary text-white border-primary shadow-md' 
+                        : 'border-teal-100 text-slate-600 bg-white hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    {tag.label}
+                  </label>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -115,6 +151,8 @@ export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficien
             <textarea 
               className="w-full bg-white text-sm rounded-xl p-4 border border-teal-100 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-slate-400 resize-none h-32 leading-relaxed shadow-sm"
               placeholder="Ví dụ: Bé thường gặp khó khăn với các bài toán hình học không gian, nhưng lại tính nhẩm rất nhanh..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
             ></textarea>
             <div className="absolute bottom-3 right-3 text-primary opacity-80 pointer-events-none">
               <Sparkles className="w-5 h-5" />
@@ -126,7 +164,7 @@ export const AssessmentScreen: React.FC<Props> = ({ onNext, onBack, setProficien
       {/* Button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-primary-surface via-primary-surface to-transparent z-20 flex justify-center w-full max-w-md mx-auto">
         <button 
-          onClick={onNext}
+          onClick={handleContinue}
           className="w-full bg-primary hover:bg-primary-dark text-white font-bold text-base py-4 px-6 rounded-2xl shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
         >
           <span>Tiếp tục phân tích</span>

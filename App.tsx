@@ -17,175 +17,19 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { SidebarNavigation } from './components/SidebarNavigation';
 import { analyzeProfile } from './utils/numerology';
 import { generateLearningPath, generateChallengeUnit, generateComprehensiveTest } from './utils/aiGenerator';
-import { Loader2, Settings, Key, AlertCircle } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 const STORAGE_KEY = 'math_genius_user_data_v3_son';
-const API_KEY_STORAGE = 'user_api_key';
-
-// --- COMPONENTS ---
-
-const ApiKeyModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (key: string) => void }) => {
-  const [key, setKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview');
-
-  const models = [
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', desc: 'Tốc độ cao (Khuyên dùng)' },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', desc: 'Thông minh hơn, chậm hơn' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Bản ổn định cũ' },
-  ];
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center gap-3 mb-6 text-teal-700 border-b border-gray-100 pb-4">
-          <Settings className="w-6 h-6" />
-          <h2 className="text-xl font-bold">Cấu hình AI & API Key</h2>
-        </div>
-
-        {/* Model Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-bold text-gray-700 mb-3">Chọn Model AI:</label>
-          <div className="grid gap-3">
-            {models.map((model) => (
-              <button
-                key={model.id}
-                onClick={() => setSelectedModel(model.id)}
-                className={`flex items-center p-3 rounded-xl border-2 transition-all text-left ${selectedModel === model.id
-                  ? 'border-teal-500 bg-teal-50 shadow-sm'
-                  : 'border-gray-100 bg-white hover:border-gray-200'
-                  }`}
-              >
-                <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${selectedModel === model.id ? 'border-teal-500' : 'border-gray-300'
-                  }`}>
-                  {selectedModel === model.id && <div className="w-2 h-2 rounded-full bg-teal-500" />}
-                </div>
-                <div>
-                  <div className={`font-bold text-sm ${selectedModel === model.id ? 'text-teal-900' : 'text-gray-700'}`}>
-                    {model.name}
-                  </div>
-                  <div className="text-xs text-gray-500">{model.desc}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* API Key Input */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Key className="w-4 h-4 text-gray-500" />
-            <label className="block text-sm font-bold text-gray-700">Gemini API Key:</label>
-          </div>
-
-          <p className="text-xs text-gray-500 mb-2">
-            Chưa có key? <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold">Lấy key tại đây</a>
-          </p>
-          <p className="text-[10px] text-gray-400 mb-3">
-            Xem hướng dẫn: <a href="https://tinyurl.com/hdsdpmTHT" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">https://tinyurl.com/hdsdpmTHT</a>
-          </p>
-
-          <input
-            type="password"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Dán API Key của bạn vào đây (AIza...)"
-            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none font-mono text-sm"
-          />
-        </div>
-
-        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-500 hover:text-gray-700 font-medium text-sm"
-          >
-            Đóng
-          </button>
-          <button
-            onClick={() => {
-              if (key.trim()) onSave(key.trim());
-            }}
-            disabled={!key.trim()}
-            className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 text-sm shadow-lg shadow-teal-900/20"
-          >
-            Lưu Cấu Hình
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Header = ({ onOpenSettings, hasKey }: { onOpenSettings: () => void; hasKey: boolean }) => (
-  <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-    <h1 className="text-lg font-bold text-teal-800 hidden md:block">KHÁM PHÁ TOÁN HỌC</h1>
-    <span className="md:hidden text-sm font-bold text-teal-800">TOÁN HỌC AI</span>
-
-    <button
-      onClick={onOpenSettings}
-      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm ${hasKey
-        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        : 'bg-red-50 text-red-600 border border-red-200 animate-pulse hover:bg-red-100'
-        }`}
-    >
-      <Settings size={18} />
-      <span>{hasKey ? 'Cài đặt API Key' : 'Lấy API key để sử dụng app'}</span>
-    </button>
-  </header>
-);
-
-const Footer = () => (
-  <footer className="bg-slate-800 text-slate-300 py-8 px-4 mt-auto border-t border-slate-700 no-print">
-    <div className="max-w-5xl mx-auto text-center">
-
-
-      <div className="space-y-2 text-sm md:text-base">
-        <p className="font-medium text-slate-400">Mọi thông tin vui lòng liên hệ:</p>
-        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6">
-          <a
-            href="https://www.facebook.com/tranhoaithanhvicko/"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-blue-400 transition-colors duration-200 flex items-center gap-2"
-          >
-            <span className="font-bold">Facebook:</span> tranhoaithanhvicko
-          </a>
-          <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-slate-600"></div>
-          <span className="hover:text-emerald-400 transition-colors duration-200 cursor-default flex items-center gap-2">
-            <span className="font-bold">Zalo:</span> 0348296773
-          </span>
-        </div>
-      </div>
-    </div>
-  </footer>
-);
-
-const ErrorBanner = ({ message }: { message: string }) => (
-  <div className="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded-r-lg shadow-sm flex items-start gap-3 animate-fade-in">
-    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-    <div>
-      <h3 className="text-red-800 font-bold text-sm">Đã xảy ra lỗi kết nối AI</h3>
-      <p className="text-red-700 text-sm mt-1 font-mono break-all leading-relaxed">{message}</p>
-    </div>
-  </div>
-);
-
-// --- MAIN APP ---
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>(ScreenName.WELCOME);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeUnit, setActiveUnit] = useState<LearningUnit | null>(null);
 
   // Quiz State
   const [lastQuizResult, setLastQuizResult] = useState<QuizResult | null>(null);
   const [isReviewingQuiz, setIsReviewingQuiz] = useState(false);
-
-  // API Key State
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE) || '');
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Initialize state with lazy initializer to check localStorage first
   const [user, setUser] = useState<UserProfile>(() => {
@@ -202,7 +46,7 @@ export default function App() {
       name: 'ĐẶNG MINH SƠN',
       dob: '02/12/2009',
       grade: 11,
-      numerologyNumber: 7,
+      numerologyNumber: 7, // 02+12+2009 = 2+1+2+2+0+0+9 = 16 -> 1+6=7
       proficiencyLevel: 3,
       history: []
     };
@@ -213,7 +57,7 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   }, [user]);
 
-  // Effect: Determine initial screen
+  // Effect: If user already has a learning path on load, go to Learning Path instead of Welcome (optional UX choice)
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -222,20 +66,8 @@ export default function App() {
         setCurrentScreen(ScreenName.LEARNING_PATH);
       }
     }
-
-    // Check API Key
-    if (!localStorage.getItem(API_KEY_STORAGE)) {
-      setShowKeyModal(true);
-    }
   }, []);
 
-  const handleSaveApiKey = (key: string) => {
-    localStorage.setItem(API_KEY_STORAGE, key);
-    setApiKey(key);
-    setShowKeyModal(false);
-    // Clear any previous error
-    setErrorMsg(null);
-  };
 
   const handleStudentInfoNext = () => {
     if (user.dob) {
@@ -249,13 +81,17 @@ export default function App() {
     setCurrentScreen(ScreenName.ASSESSMENT);
   };
 
-  const handleAssessmentNext = (proficiency: number) => {
-    setUser(prev => ({ ...prev, proficiencyLevel: proficiency }));
+  const handleAssessmentNext = (data: { proficiency: number, tags: string[], notes: string }) => {
+    setUser(prev => ({
+      ...prev,
+      proficiencyLevel: data.proficiency,
+      assessmentTags: data.tags,
+      assessmentNotes: data.notes
+    }));
     setCurrentScreen(ScreenName.ANALYSIS_RESULT);
   };
 
   const handleCreateLearningPath = async (grade: number, topics: string[]) => {
-    setErrorMsg(null);
     setIsGenerating(true);
     const updatedUser = { ...user, grade, selectedTopics: topics };
     setUser(updatedUser);
@@ -269,8 +105,8 @@ export default function App() {
       setCurrentScreen(ScreenName.LEARNING_PATH);
     } catch (error: any) {
       console.error("Failed to generate path", error);
-      setErrorMsg(error.message || "Unknown error occurred");
-      setCurrentScreen(ScreenName.CLASS_SELECTION); // Stay here so user can retry
+      setError(error.message || "Lỗi không xác định từ AI Service");
+      // Don't change screen if error
     } finally {
       setIsGenerating(false);
     }
@@ -278,15 +114,17 @@ export default function App() {
 
   // Upgrade/Challenge Unit Logic
   const handleUpgradeUnit = async (unit: LearningUnit) => {
-    setErrorMsg(null);
     setIsGenerating(true);
     try {
       const newUnit = await generateChallengeUnit(user, unit);
       if (newUnit && user.learningPath) {
+        // Update the learning path with the new harder unit
         const updatedPath = user.learningPath.map(u =>
           u.id === unit.id ? newUnit : u
         );
         setUser(prev => ({ ...prev, learningPath: updatedPath }));
+
+        // Immediately start the new unit
         setActiveUnit(newUnit);
         setIsReviewingQuiz(false);
         setLastQuizResult(null);
@@ -294,8 +132,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("Failed to generate challenge", error);
-      setErrorMsg(error.message || "Failed to generate challenge");
-      // Don't navigate away, just show error
+      setError(error.message || "Lỗi tạo thử thách");
     } finally {
       setIsGenerating(false);
     }
@@ -303,7 +140,6 @@ export default function App() {
 
   // Comprehensive Test Logic
   const handleComprehensiveTest = async () => {
-    setErrorMsg(null);
     setIsGenerating(true);
     try {
       const examUnit = await generateComprehensiveTest(user);
@@ -315,13 +151,14 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("Failed to generate exam", error);
-      setErrorMsg(error.message || "Failed to generate exam");
+      setError(error.message || "Lỗi tạo bài thi");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleQuizFinish = (result: QuizResult) => {
+    // Add timestamp and unit title to result for history
     const finalResult: QuizResult = {
       ...result,
       timestamp: Date.now(),
@@ -331,6 +168,7 @@ export default function App() {
     setLastQuizResult(finalResult);
     setIsReviewingQuiz(false);
 
+    // Update unit status in user profile if it's a regular unit
     if (user.learningPath && activeUnit?.level !== 99) {
       const updatedPath = user.learningPath.map(u => {
         if (u.id === result.unitId) {
@@ -340,12 +178,14 @@ export default function App() {
         return u;
       });
 
+      // Update User History
       setUser(prev => ({
         ...prev,
         learningPath: updatedPath,
-        history: [finalResult, ...(prev.history || [])]
+        history: [finalResult, ...(prev.history || [])] // Add new result to start of history
       }));
     } else {
+      // Just update history for comprehensive exams
       setUser(prev => ({
         ...prev,
         history: [finalResult, ...(prev.history || [])]
@@ -362,7 +202,6 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
-    // Note: We do NOT clear the API Key on logout, usually. Copied key is valuable.
     // Reset to defaults
     setUser({
       name: '',
@@ -384,7 +223,7 @@ export default function App() {
         return <StudentInfoScreen user={user} setUser={setUser} onNext={handleStudentInfoNext} onBack={() => setCurrentScreen(ScreenName.WELCOME)} />;
       case ScreenName.ASSESSMENT:
         return <AssessmentScreen
-          onNext={() => handleAssessmentNext(user.proficiencyLevel || 3)}
+          onNext={handleAssessmentNext}
           onBack={() => setCurrentScreen(ScreenName.STUDENT_INFO)}
           setProficiency={(level) => setUser({ ...user, proficiencyLevel: level })}
         />;
@@ -408,12 +247,13 @@ export default function App() {
           onStartQuiz={(unit) => {
             setActiveUnit(unit);
             setIsReviewingQuiz(false);
-            setLastQuizResult(null);
+            setLastQuizResult(null); // Reset result
             setCurrentScreen(ScreenName.QUIZ);
           }}
           onUpgradeUnit={handleUpgradeUnit}
           onBack={() => setCurrentScreen(ScreenName.CLASS_SELECTION)}
           onStartComprehensiveTest={handleComprehensiveTest}
+          onSettings={() => setCurrentScreen(ScreenName.SETTINGS)}
         />;
       case ScreenName.QUIZ:
         return <QuizScreen
@@ -434,7 +274,7 @@ export default function App() {
       case ScreenName.PARENT_REPORT:
         return <ParentReportScreen user={user} />;
       case ScreenName.CHAT:
-        return <ChatScreen />;
+        return <ChatScreen user={user} />;
       case ScreenName.GAMES:
         return <GameLibraryScreen user={user} setUser={setUser} />;
       case ScreenName.SETTINGS:
@@ -444,6 +284,7 @@ export default function App() {
     }
   };
 
+  // Check if navigation should be visible
   const isNavigable = [
     ScreenName.LEARNING_PATH,
     ScreenName.PROFILE,
@@ -461,22 +302,11 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col min-h-screen relative overflow-hidden transition-all duration-300 ${isNavigable ? 'md:ml-64' : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen relative overflow-hidden transition-all duration-300 ${isNavigable ? 'md:ml-80' : ''}`}>
 
-        {/* Header with API Key Settings */}
-        <Header onOpenSettings={() => setShowKeyModal(true)} hasKey={!!apiKey} />
-
-        <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar relative flex flex-col">
-          {/* Error Banner */}
-          {errorMsg && <ErrorBanner message={errorMsg} />}
-
-          {/* Content */}
-          <div className="flex-1">
-            {renderScreen()}
-          </div>
-
-          {/* Footer */}
-          <Footer />
+        {/* Render Screen (removed max-w-md constraint) */}
+        <div className="flex-1 w-full h-full overflow-y-auto no-scrollbar relative">
+          {renderScreen()}
         </div>
 
         {/* Loading Overlay */}
@@ -497,14 +327,50 @@ export default function App() {
         {isNavigable && (
           <BottomNavigation currentScreen={currentScreen} onNavigate={setCurrentScreen} />
         )}
-      </div>
 
-      {/* API Key Modal */}
-      <ApiKeyModal
-        isOpen={showKeyModal}
-        onClose={() => setShowKeyModal(false)}
-        onSave={handleSaveApiKey}
-      />
+        {/* Global API Key Modal Check */}
+        {!localStorage.getItem('GEMINI_API_KEY') && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-surface-dark p-6 rounded-3xl max-w-md w-full shadow-2xl border border-teal-100 dark:border-teal-800 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+
+              <h3 className="font-bold text-xl mb-2 text-teal-900 dark:text-white relative z-10">Yêu cầu kích hoạt</h3>
+              <p className="mb-6 text-sm text-gray-600 dark:text-gray-300 relative z-10 leading-relaxed">
+                Ứng dụng cần <strong className="text-primary">Gemini API Key</strong> để hoạt động. Key của bạn được lưu an toàn trên trình duyệt này.
+              </p>
+
+              <div className="relative z-10 mb-6">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Nhập API Key</label>
+                <input
+                  className="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-dark-bg p-3 rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
+                  placeholder="AIza..."
+                  onChange={(e) => {
+                    localStorage.setItem('GEMINI_API_KEY_TEMP', e.target.value);
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 relative z-10">
+                <button onClick={() => {
+                  const tempKey = localStorage.getItem('GEMINI_API_KEY_TEMP');
+                  if (tempKey && tempKey.length > 10) {
+                    localStorage.setItem('GEMINI_API_KEY', tempKey);
+                    window.location.reload(); // Reload to clear modal state simply
+                  } else {
+                    alert("Vui lòng nhập API Key hợp lệ!");
+                  }
+                }} className="bg-primary hover:bg-primary-dark text-white py-3.5 px-4 rounded-xl font-bold transition-all shadow-lg shadow-teal-500/20 active:scale-[0.98]">
+                  Kích hoạt ngay
+                </button>
+
+                <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-center text-xs text-gray-500 hover:text-primary mt-2">
+                  Chưa có key? <span className="underline decoration-primary/50">Lấy API Key miễn phí tại đây (Google)</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

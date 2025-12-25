@@ -112,6 +112,14 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
   const currentAnswer = answers[question.id];
   const isCurrentCorrect = currentAnswer ? isCorrectAnswer(currentAnswer, question.correctAnswer) : false;
 
+  // Helper for dynamic font size based on content length
+  const getQuestionStyle = (text: string) => {
+    const len = text.length;
+    if (len < 50) return "text-2xl md:text-3xl lg:text-4xl text-center";
+    if (len < 100) return "text-xl md:text-2xl lg:text-3xl text-center";
+    return "text-lg md:text-xl lg:text-2xl text-left";
+  };
+
   const renderExplanation = () => {
     if (!isChecked && !isReviewMode) return null;
 
@@ -145,8 +153,11 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
   const renderQuestionInput = (q: Question) => {
     if (q.type === 'multiple-choice') {
       return (
-        <div className="flex flex-col gap-4">
-          <p className="text-base font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase tracking-wide">Chọn đáp án đúng:</p>
+        <div className="flex flex-col gap-4 mt-2">
+          <p className="text-sm font-bold text-teal-600 dark:text-teal-400 ml-1 uppercase tracking-wide flex items-center gap-2">
+             <span className="w-8 h-0.5 bg-teal-200 dark:bg-teal-800"></span> 
+             Chọn đáp án đúng
+          </p>
           <div className="grid grid-cols-1 gap-4">
             {q.options?.map((ans, idx) => {
               const labels = ['A', 'B', 'C', 'D'];
@@ -192,25 +203,25 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
                   key={idx}
                   disabled={isChecked || isReviewMode}
                   onClick={() => handleAnswerSelect(ans)}
-                  className={`flex items-center justify-between w-full p-6 md:p-5 rounded-2xl border-2 transition-all group relative overflow-hidden
+                  className={`flex items-center justify-between w-full p-5 rounded-2xl border-2 transition-all group relative overflow-hidden
                     ${borderColor} ${bgColor} ${shadow}
                     ${(!isChecked && !isReviewMode) ? 'hover:border-teal-200 cursor-pointer active:scale-[0.99]' : 'cursor-default'}
                   `}
                 >
-                  <div className="flex items-center gap-6 text-left relative z-10 w-full">
-                    <div className={`size-12 md:size-14 rounded-xl text-xl md:text-2xl font-bold flex shrink-0 items-center justify-center transition-colors
+                  <div className="flex items-center gap-5 text-left relative z-10 w-full">
+                    <div className={`size-12 rounded-xl text-xl font-bold flex shrink-0 items-center justify-center transition-colors
                       ${labelBg}
                     `}>
                       {labels[idx]}
                     </div>
                     {/* Answer Text - Using Lexend for clear math display */}
                     <span 
-                      className="text-xl md:text-2xl font-medium text-gray-800 dark:text-white leading-normal font-display flex-1 math-formula"
+                      className="text-lg md:text-xl font-medium text-gray-800 dark:text-white leading-normal font-display flex-1 math-formula"
                       dangerouslySetInnerHTML={{ __html: ans }}
                     >
                     </span>
                   </div>
-                  {icon && <div className="ml-4">{icon}</div>}
+                  {icon && <div className="ml-2">{icon}</div>}
                 </button>
               );
             })}
@@ -221,36 +232,42 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
     
     if (q.type === 'true-false') {
       return (
-         <div className="flex gap-6 mt-4">
-           {['Đúng', 'Sai'].map((opt) => {
-             const isSelected = currentAnswer === opt;
-             const isThisCorrect = isCorrectAnswer(opt, q.correctAnswer);
-             
-             let containerClass = "bg-white border-transparent hover:shadow-md";
-             if (isChecked || isReviewMode) {
-                if (isSelected && isThisCorrect) containerClass = "bg-green-50 border-green-500 text-green-700";
-                else if (isSelected && !isThisCorrect) containerClass = "bg-red-50 border-red-500 text-red-700";
-                else if (!isSelected && isThisCorrect) containerClass = "bg-white border-green-500 border-dashed text-green-700 opacity-60";
-             } else {
-                if (isSelected) {
-                   containerClass = opt === 'Đúng' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700';
-                }
-             }
+         <div className="flex flex-col gap-4 mt-2">
+           <p className="text-sm font-bold text-teal-600 dark:text-teal-400 ml-1 uppercase tracking-wide flex items-center gap-2">
+             <span className="w-8 h-0.5 bg-teal-200 dark:bg-teal-800"></span> 
+             Chọn Đúng hoặc Sai
+           </p>
+           <div className="flex gap-6">
+             {['Đúng', 'Sai'].map((opt) => {
+               const isSelected = currentAnswer === opt;
+               const isThisCorrect = isCorrectAnswer(opt, q.correctAnswer);
+               
+               let containerClass = "bg-white border-transparent hover:shadow-md";
+               if (isChecked || isReviewMode) {
+                  if (isSelected && isThisCorrect) containerClass = "bg-green-50 border-green-500 text-green-700";
+                  else if (isSelected && !isThisCorrect) containerClass = "bg-red-50 border-red-500 text-red-700";
+                  else if (!isSelected && isThisCorrect) containerClass = "bg-white border-green-500 border-dashed text-green-700 opacity-60";
+               } else {
+                  if (isSelected) {
+                     containerClass = opt === 'Đúng' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700';
+                  }
+               }
 
-             return (
-               <button
-                 key={opt}
-                 disabled={isChecked || isReviewMode}
-                 onClick={() => handleAnswerSelect(opt)}
-                 className={`flex-1 h-48 md:h-64 rounded-3xl border-2 flex flex-col items-center justify-center gap-4 transition-all shadow-sm ${containerClass}`}
-               >
-                 <span className="text-4xl md:text-5xl font-bold">{opt}</span>
-                 {(isChecked || isReviewMode) && isSelected && (
-                    isThisCorrect ? <CheckCircle className="w-10 h-10" /> : <XCircle className="w-10 h-10" />
-                 )}
-               </button>
-             )
-           })}
+               return (
+                 <button
+                   key={opt}
+                   disabled={isChecked || isReviewMode}
+                   onClick={() => handleAnswerSelect(opt)}
+                   className={`flex-1 h-48 md:h-64 rounded-3xl border-2 flex flex-col items-center justify-center gap-4 transition-all shadow-sm ${containerClass}`}
+                 >
+                   <span className="text-4xl md:text-5xl font-bold">{opt}</span>
+                   {(isChecked || isReviewMode) && isSelected && (
+                      isThisCorrect ? <CheckCircle className="w-10 h-10" /> : <XCircle className="w-10 h-10" />
+                   )}
+                 </button>
+               )
+             })}
+           </div>
          </div>
       );
     }
@@ -258,7 +275,10 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
     if (q.type === 'fill-in-blank') {
        return (
          <div className="mt-4">
-           <p className="text-base font-bold text-gray-500 dark:text-gray-400 ml-1 mb-3">Nhập câu trả lời của bạn:</p>
+           <p className="text-sm font-bold text-teal-600 dark:text-teal-400 ml-1 uppercase tracking-wide flex items-center gap-2 mb-3">
+             <span className="w-8 h-0.5 bg-teal-200 dark:bg-teal-800"></span> 
+             Nhập kết quả
+           </p>
            <div className="relative">
              <input 
                type="text" 
@@ -270,19 +290,19 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
                    handleAnswerSelect(inputValue);
                  }
                }}
-               className={`w-full h-20 md:h-24 px-6 text-3xl md:text-4xl font-bold rounded-2xl border-2 outline-none bg-white dark:bg-surface-dark dark:text-white text-center tracking-widest math-formula
+               className={`w-full h-24 md:h-32 px-6 text-4xl md:text-5xl font-bold rounded-2xl border-2 outline-none bg-white dark:bg-surface-dark dark:text-white text-center tracking-widest math-formula shadow-inner
                  ${(isChecked || isReviewMode) 
                     ? (isCurrentCorrect ? 'border-green-500 bg-green-50 text-green-700' : 'border-red-500 bg-red-50 text-red-700')
                     : 'border-teal-100 focus:border-primary placeholder-gray-300'
                  }
                `}
-               placeholder="..."
+               placeholder="?"
              />
              {!isChecked && !isReviewMode && (
                <button 
                  onClick={() => handleAnswerSelect(inputValue)}
                  disabled={!inputValue}
-                 className="absolute right-3 top-3 bottom-3 bg-primary hover:bg-primary-dark text-white px-8 rounded-xl font-bold text-lg disabled:opacity-50 transition-colors"
+                 className="absolute right-4 top-4 bottom-4 bg-primary hover:bg-primary-dark text-white px-8 rounded-xl font-bold text-lg disabled:opacity-50 transition-colors shadow-lg shadow-teal-500/20"
                >
                  Kiểm tra
                </button>
@@ -344,7 +364,7 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
 
          {/* Question Card */}
          <div className="flex flex-col gap-6 relative z-10 w-full animate-fade-in-up">
-           <div className="rounded-3xl bg-white dark:bg-surface-dark border-2 border-white/50 dark:border-white/5 p-8 md:p-10 shadow-xl shadow-teal-100/50 dark:shadow-none">
+           <div className="rounded-3xl bg-white dark:bg-surface-dark border-2 border-white/50 dark:border-white/5 p-8 md:p-10 shadow-xl shadow-teal-100/50 dark:shadow-none min-h-[200px] flex flex-col justify-center">
              <div className="flex justify-between items-start mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
                <div className="flex gap-3">
                  <span className="bg-teal-50 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider border border-teal-100 dark:border-teal-500/20">
@@ -364,11 +384,13 @@ export const QuizScreen: React.FC<Props> = ({ unit, onFinish, onBack, isReviewMo
              </div>
              
              {/* Large Question Text with HTML support */}
-             <h3 
-               className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 leading-normal tracking-tight math-formula"
-               dangerouslySetInnerHTML={{ __html: question.content }}
-             >
-             </h3>
+             <div className="flex-1 flex items-center justify-center">
+                <h3 
+                  className={`font-bold text-gray-900 dark:text-white mb-2 leading-relaxed tracking-tight math-formula w-full ${getQuestionStyle(question.content)}`}
+                  dangerouslySetInnerHTML={{ __html: question.content }}
+                >
+                </h3>
+             </div>
            </div>
 
            {/* Dynamic Answer Section */}
