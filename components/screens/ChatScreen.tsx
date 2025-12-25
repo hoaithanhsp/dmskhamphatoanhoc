@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, MoreVertical, Route, Calculator, Brain, LifeBuoy, Plus, Mic, Send, Lightbulb, Map, CheckCircle2, User, Bot, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { GoogleGenAI, Content } from "@google/genai";
+import { ChevronLeft, MoreVertical, Route, Calculator, Brain, LifeBuoy, Plus, Mic, Send, Lightbulb, Map, CheckCircle2, User, Bot, Loader2, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { GoogleGenAI, Content, Part } from "@google/genai";
 import { UserProfile } from '../../types';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
+  image?: string; // Base64 string for image
   timestamp: number;
 }
 
@@ -24,6 +25,8 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Default to 'guide' or no selection. Let's default to null so user knows they can choose, or 'guide' as safe middle ground.
   const [supportMode, setSupportMode] = useState<'hint' | 'guide' | 'full'>('guide');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,9 +85,31 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 5MB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const sendMessage = async (textOverride?: string, supportLevel?: string) => {
     const textToSend = textOverride || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() && !selectedImage) return;
 
     // Use explicit supportLevel arg if present, otherwise use state
     const modeToUse = supportLevel || supportMode;
@@ -94,10 +119,12 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
       id: `user-${Date.now()}`,
       role: 'user',
       text: textToSend,
+      image: selectedImage || undefined,
       timestamp: Date.now()
     };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setSelectedImage(null); // Clear image after sending
     setIsLoading(true);
 
     try {
@@ -157,10 +184,26 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
 
       const ai = new GoogleGenAI({ apiKey });
 
+      // Prepare Current Message Parts
+      const currentParts: Part[] = [{ text: prompt }];
+
+      if (selectedImage) {
+        // Remove header "data:image/jpeg;base64," to get just the base64 string
+        const base64Data = selectedImage.split(',')[1];
+        const mimeType = selectedImage.split(';')[0].split(':')[1];
+
+        currentParts.push({
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data
+          }
+        });
+      }
+
       // Call Gemini
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: [...history, { role: 'user', parts: [{ text: prompt }] }],
+        contents: [...history, { role: 'user', parts: currentParts }],
         config: {
           systemInstruction: systemInstruction,
           temperature: 0.7,
@@ -288,8 +331,8 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
               <button
                 onClick={() => setSupportMode('hint')}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all min-w-[90px] ${supportMode === 'hint'
-                    ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-400 dark:border-yellow-600 text-yellow-800 dark:text-yellow-100 shadow-sm ring-1 ring-yellow-400/50'
-                    : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                  ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-400 dark:border-yellow-600 text-yellow-800 dark:text-yellow-100 shadow-sm ring-1 ring-yellow-400/50'
+                  : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
                   }`}
               >
                 <Lightbulb size={20} className={supportMode === 'hint' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'} />
@@ -299,8 +342,8 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
               <button
                 onClick={() => setSupportMode('guide')}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all min-w-[90px] ${supportMode === 'guide'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-800 dark:text-blue-100 shadow-sm ring-1 ring-blue-400/50'
-                    : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-800 dark:text-blue-100 shadow-sm ring-1 ring-blue-400/50'
+                  : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
                   }`}
               >
                 <Map size={20} className={supportMode === 'guide' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} />
@@ -310,8 +353,8 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
               <button
                 onClick={() => setSupportMode('full')}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all min-w-[90px] ${supportMode === 'full'
-                    ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-600 text-green-800 dark:text-green-100 shadow-sm ring-1 ring-green-400/50'
-                    : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                  ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-600 text-green-800 dark:text-green-100 shadow-sm ring-1 ring-green-400/50'
+                  : 'bg-white dark:bg-surface-dark border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
                   }`}
               >
                 <CheckCircle2 size={20} className={supportMode === 'full' ? 'text-green-600 dark:text-green-400' : 'text-gray-400'} />
@@ -320,9 +363,35 @@ export const ChatScreen: React.FC<Props> = ({ user }) => {
             </div>
           </div>
 
+          {/* Image Preview Area */}
+          {selectedImage && (
+            <div className="mx-4 mb-2 p-2 bg-white dark:bg-surface-dark rounded-xl border border-teal-100 dark:border-teal-800 shadow-sm flex items-start gap-3 w-fit animate-fade-in-up">
+              <div className="relative">
+                <img src={selectedImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700" />
+              </div>
+              <div className="flex flex-col gap-1 pr-2">
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Đã chọn ảnh</span>
+                <button onClick={handleRemoveImage} className="text-[10px] text-red-500 hover:text-red-600 font-medium flex items-center gap-1">
+                  <X size={12} /> Xóa
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Input Row */}
           <div className="flex items-end gap-2">
-            <button className="flex shrink-0 items-center justify-center rounded-full size-11 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Chụp ảnh (Sắp ra mắt)">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              accept="image/*"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex shrink-0 items-center justify-center rounded-full size-11 transition-colors ${selectedImage ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+              title="Tải ảnh lên"
+            >
               <ImageIcon size={20} />
             </button>
             <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center px-4 py-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
