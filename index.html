@@ -7,6 +7,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&family=Noto+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Emergency Error Logger for White Screen Debugging
+      window.onerror = function (message, source, lineno, colno, error) {
+        const errorContainer = document.createElement('div');
+        errorContainer.style.position = 'fixed';
+        errorContainer.style.top = '0';
+        errorContainer.style.left = '0';
+        errorContainer.style.width = '100%';
+        errorContainer.style.backgroundColor = '#fee2e2'; // Red 100
+        errorContainer.style.color = '#991b1b'; // Red 800
+        errorContainer.style.padding = '20px';
+        errorContainer.style.zIndex = '999999';
+        errorContainer.style.fontFamily = 'monospace';
+        errorContainer.style.whiteSpace = 'pre-wrap';
+        errorContainer.style.borderBottom = '4px solid #ef4444';
+        
+        const time = new Date().toLocaleTimeString();
+        errorContainer.innerHTML = `<strong>⚠️ Application Crash (${time})</strong><br/>
+        <div style="margin-top: 10px; font-weight: bold">${message}</div>
+        <div style="margin-top: 5px; font-size: 0.9em">${source}:${lineno}:${colno}</div>
+        <div style="margin-top: 10px; opacity: 0.8; font-size: 0.85em">${error ? error.stack : ''}</div>`;
+        
+        document.body.appendChild(errorContainer);
+      };
+
+      window.onunhandledrejection = function(event) {
+        window.onerror(
+          "Unhandled Promise Rejection: " + (event.reason ? event.reason.message : event.reason),
+          "", 0, 0, event.reason
+        );
+      };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
